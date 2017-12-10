@@ -12,6 +12,12 @@ enum e_flags {
 	FLAGS_LEN = 24
 };
 
+typedef struct s_printf t_printf;
+struct s_printf {
+	int padding;
+	int plus;
+};
+
 void ft_bzero(void *p, size_t s)
 {
 	size_t i;
@@ -39,6 +45,32 @@ void ft_putstr(const char *s)
 	write(1, s, ft_strlen(s));
 }
 
+int			ft_atoi(const char *str)
+{
+	int		i;
+	int		nbr;
+	int		sign;
+
+	nbr = 0;
+	sign = 1;
+	i = 0;
+
+
+	while ((str[i] >= 9 && str[i] <= 13) || str[i] == 32)
+		i++;
+	if (str[i] == '-' || str[i] == '+')
+	{
+		if (str[i] == '-')
+			sign *= -1;
+		i++;
+	}
+	while (str[i] >= '0' && str[i] <= '9')
+	{
+		nbr = 10 * nbr + (str[i] - '0');
+		i++;
+	}
+	return (nbr * sign);
+}
 
 char	*ft_strchr(const char *s, int c)
 {
@@ -74,17 +106,31 @@ static void		reverse(char *str, int length)
 	}
 }
 
+char	*ft_strcpy(char *s1, const char *s2)
+{
+	char	*p;
+
+	p = s1;
+	while (*s2 != '\0')
+	{
+		*s1++ = *s2++;
+	}
+	*s1 = '\0';
+	return (p);
+}
+
 char			*ft_itoa(int n)
 {
 	char		*result;
 	int			sign;
 	int			i;
 
+	result = malloc(sizeof(char) * 12);
+	ft_bzero(result, 12);
 	if (n == -2147483648)
-		return ("-2147483648");
+		return (ft_strcpy(result, "-2147483648"));
 	sign = n < 0 ? 1 : 0;
 	i = 0;
-	result = malloc(sizeof(char *) * 12);
 	if (n == 0)
 		result[i++] = '0';
 	else if (n < 0)
@@ -102,20 +148,48 @@ char			*ft_itoa(int n)
 	return (result);
 }
 
-char	*ft_strcpy(char *s1, const char *s2)
+char			*ft_utoa(unsigned int n)
 {
-	char	*p;
+	char		*result;
+	unsigned int			i;
 
-	p = s1;
-	while (*s2 != '\0')
+	result = malloc(sizeof(char) * 12);
+	ft_bzero(result, 12);
+	i = 0;
+	if (n == 0)
+		result[i++] = '0';
+	while (n > 0)
 	{
-		*s1++ = *s2++;
+		result[i++] = '0' + n % 10;
+		n /= 10;
 	}
-	*s1 = '\0';
-	return (p);
+	reverse(result, i);
+	result[i] = '\0';
+	return (result);
 }
 
 
+
+
+void print_struct(t_printf *arg)
+{
+	printf(
+		"t_printf %p:\n"
+		"\tpadding: %d\n",
+		arg,
+		arg->padding
+	);
+}
+
+int count_digit(const char *s)
+{
+	int i;
+
+	i = 0;
+	while ( s[i] && ((s[i] >= '0' && s[i] <= '9') || s[i] == '-') )
+		i += 1;
+	return (i);
+}
 
 
 
@@ -138,11 +212,27 @@ int ft_writeint(va_list args, char *s)
 	return (len);
 }
 
+int ft_writeunsigned(va_list args, char *s)
+{
+	unsigned int i = va_arg(args, unsigned int);
+	char *tmp = ft_utoa(i);
+	int len = ft_strlen(tmp);
+
+	ft_strcpy(s, tmp);
+	free(tmp);
+	return (len);
+}
+
 int ft_writestring(va_list args, char *s)
 {
 	char *tmp = va_arg(args, char *);
 
-	ft_strcpy(s, tmp);
+	if (!tmp) {
+		ft_strcpy(s, "(null)");
+		return (6);
+	}
+	else
+		ft_strcpy(s, tmp);
 	return (ft_strlen(tmp));
 }
 
@@ -180,7 +270,7 @@ struct {
 	{ 'i', NULL },
 	{ 'o', NULL },
 	{ 'O', NULL },
-	{ 'u', NULL },
+	{ 'u', ft_writeunsigned },
 	{ 'U', NULL },
 	{ 'x', NULL },
 	{ 'X', NULL },
@@ -189,15 +279,57 @@ struct {
 	{ '\0', NULL }
 };
 
-int match(va_list args, char *s, char c)
+int match(va_list args, char *s, char c, t_printf *arg)
 {
 	int i;
 
 	i = 0;
+	(void)arg;
 	while (matches[i].c)
 	{
-		if (matches[i].c == c && matches[i].f)
-			return matches[i].f(args, s);
+		if (matches[i].c == c && matches[i].f) {
+			int len = matches[i].f(args, s);
+			char _[len + 2];
+			ft_bzero(_, len + 2);
+
+			if (arg->padding >= 0) {
+
+				int plus = 0;
+				if (arg->plus && s[0] != '-') {
+					plus = 1;
+					ft_strcpy(_, "+");
+					ft_strcpy(_ + 1, s);
+				}
+				else
+					ft_strcpy(_, s);
+
+				int padding = (arg->padding - len);
+				while (padding > -1 - arg->plus) {
+					s[padding] = ' ';
+					padding -= 1;
+				}
+				if (arg->padding - len > 0)
+					ft_strcpy(&s[arg->padding - len - arg->plus - plus], _);
+
+				if (arg->padding > len)
+					return (arg->padding - arg->plus);
+				return (len - arg->plus);
+
+			}
+			else {
+				int padding = (arg->padding * -1) - len;
+				char padstring[padding];
+
+				int i = 0;
+				while (i < padding) {
+					padstring[i] = ' ';
+					i += 1;
+				}
+
+				ft_strcpy(&s[len], padstring);
+				return (len + padding);
+			}
+		}
 		i += 1;
 	}
 
@@ -215,22 +347,34 @@ int ft_printf(const char * restrict format, ...) {
 	ft_bzero(str, 1024);
 
 	char *s = str;
-
-	char *tmp = ft_strchr(format, '%');
-	if (!tmp)
-		return (s - str);
-	char next = *tmp;
-	(void)next;
-	while (i < ft_strlen(format) && next != 'S') {
+	int len = ft_strlen(format);
+	while (i < len) {
 		if (format[i] == '%') {
-			// if (format[i + 1] == 'S') {
-			// 	va_end(a_list);
-			// 	write(1, str, 1024);
-			// 	return (0);
-			// }
-			s += match(a_list, s, format[i + 1]);
-			// next = ft_strchr(&format[i + 1], '%')[1];
+			t_printf arg;
 			i += 1;
+
+			ft_bzero(&arg, sizeof(t_printf));
+			if (format[i] == '0')
+				;
+				// printf("got it\n");
+			if (format[i] == '+') {
+				// printf("got plus\n");
+				arg.plus = 1;
+				s += 1;
+				i += 1;
+			}
+			// if (format[i] == '-') {
+				// printf("got plus\n");
+				// arg.minus = 1;
+				// s += 1;
+				// i += 1;
+			// }
+
+
+			arg.padding = ft_atoi(&format[i]);
+
+			i += count_digit(&format[i]);
+			s += match(a_list, s, format[i], &arg);
 		}
 		else {
 			*s = format[i];
