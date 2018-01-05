@@ -21,6 +21,6 @@ fclean:
 re: fclean all
 
 tests:
-	make -C tests
+	$(CC) $(CFLAGS) -L. -lftprintf test.c
 
 .PHONY: $(NAME) all re clean fclean tests
