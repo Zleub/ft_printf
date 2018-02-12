@@ -11,7 +11,7 @@
 # **************************************************************************** #
 
 NAME = libftprintf.a
-HEADDIR = ../inc
+HEADDIR = .
 
 SRC =	ft_atoi.c \
 		ft_isdigit.c \
